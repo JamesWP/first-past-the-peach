@@ -17,17 +17,44 @@ function castVote(winnerId, loserId) {
   renderVoteScreen();
 }
 
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if (document.activeElement?.matches('input, textarea, select')) return;
+    if (!document.getElementById('vote').classList.contains('active')) return;
+
+    const btns = document.querySelectorAll('#vote-pair .vote-btn');
+    if (btns.length !== 2) return;
+
+    let idx = -1;
+    if (e.key === 'ArrowLeft' || e.key === 'j') idx = 0;
+    if (e.key === 'ArrowRight' || e.key === 'k') idx = 1;
+    if (idx === -1) return;
+
+    e.preventDefault();
+    btns[idx].classList.add('key-active');
+    setTimeout(() => btns[idx].click(), 80);
+  });
+}
+
+const KEY_HINTS = [['←', 'ArrowLeft'], ['→', 'ArrowRight']];
+
 function renderVoteScreen() {
   const [a, b] = pickPair(db);
   const [[total]] = db.query('SELECT COUNT(*) FROM votes');
 
   const pairEl = document.getElementById('vote-pair');
   pairEl.innerHTML = '';
-  for (const [candidate, opponent] of [[a, b], [b, a]]) {
+  for (const [[candidate, opponent], [label]] of [[[a, b], KEY_HINTS[0]], [[b, a], KEY_HINTS[1]]]) {
     const btn = document.createElement('button');
-    btn.className = 'vote-btn';
+    const colorKey = candidate.gender !== 'n' ? candidate.gender
+      : opponent.gender !== 'n' ? opponent.gender : 'y';
+    btn.className = `vote-btn vote-btn--${colorKey}`;
     btn.textContent = candidate.name;
     btn.onclick = () => castVote(candidate.id, opponent.id);
+    const hint = document.createElement('span');
+    hint.className = 'key-hint';
+    hint.textContent = label;
+    btn.appendChild(hint);
     pairEl.appendChild(btn);
   }
   document.getElementById('vote-count').textContent =
@@ -37,14 +64,15 @@ function renderVoteScreen() {
 function renderRankScreen() {
   const scores = computeElo(db);
   let rows = db.query('SELECT id, name, gender FROM names');
-  if (activeGender !== 'all') rows = rows.filter(([, , g]) => g === activeGender);
+  if (activeGender !== 'all') rows = rows.filter(([, , g]) => g === activeGender || g === 'n');
   rows.sort((a, b) => (scores.get(b[0]) ?? 1000) - (scores.get(a[0]) ?? 1000));
 
   const tabs = document.getElementById('filter-tabs');
   tabs.innerHTML = '';
-  for (const [label, value] of [['All', 'all'], ['F', 'f'], ['M', 'm'], ['N', 'n']]) {
+  for (const [label, value] of [['All', 'all'], ['F', 'f'], ['M', 'm']]) {
     const btn = document.createElement('button');
-    btn.className = 'filter-tab' + (activeGender === value ? ' active' : '');
+    const colorClass = value !== 'all' ? ` filter-tab--${value}` : '';
+    btn.className = 'filter-tab' + colorClass + (activeGender === value ? ' active' : '');
     btn.textContent = label;
     btn.onclick = () => { activeGender = value; renderRankScreen(); };
     tabs.appendChild(btn);
@@ -92,3 +120,4 @@ window.showSection = showSection;
 await initDB();
 renderVoteScreen();
 setupAddForm();
+setupKeyboardShortcuts();

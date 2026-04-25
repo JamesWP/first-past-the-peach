@@ -58,8 +58,8 @@ export function pickPair(db) {
   const genderA = nameMap.get(idA).gender;
   const [idB] = entries.slice(1).find(([id]) => compatible(genderA, nameMap.get(id).gender));
   return [
-    { id: idA, name: nameMap.get(idA).name },
-    { id: idB, name: nameMap.get(idB).name },
+    { id: idA, name: nameMap.get(idA).name, gender: nameMap.get(idA).gender },
+    { id: idB, name: nameMap.get(idB).name, gender: nameMap.get(idB).gender },
   ];
 }
 

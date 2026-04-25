@@ -11,6 +11,9 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #fff;
       color: #111;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
 
     header {
@@ -33,16 +36,29 @@
     nav a:hover { color: #111; }
     nav a.active { color: #111; font-weight: 500; }
 
-    main { max-width: 640px; margin: 0 auto; padding: 3rem 2rem; }
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
 
     section { display: none; }
     section.active { display: block; }
+    #vote.active {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      justify-content: center;
+    }
 
     /* Vote */
     .vote-pair {
       display: flex;
       gap: 1.25rem;
-      margin-bottom: 2rem;
     }
     .vote-btn {
       flex: 1;
@@ -54,9 +70,51 @@
       background: #fff;
       cursor: pointer;
       transition: border-color 0.12s, background 0.12s;
+      position: relative;
     }
     .vote-btn:hover { border-color: #111; background: #fafafa; }
-    .vote-count { text-align: center; color: #aaa; font-size: 0.85rem; }
+    .vote-btn--f { border-color: #f0b0d8; background: #fff8fc; }
+    .vote-btn--f:hover { border-color: #d060a8; background: #feeef8; }
+    .vote-btn--m { border-color: #a8c8f0; background: #f6f9ff; }
+    .vote-btn--m:hover { border-color: #5090d0; background: #eef4fd; }
+    .vote-btn--y { border-color: #f0d060; background: #fffdf0; }
+    .vote-btn--y:hover { border-color: #c8a820; background: #fffbe0; }
+    .vote-btn .key-hint {
+      position: absolute;
+      bottom: 0.6rem;
+      font-size: 0.7rem;
+      color: #888;
+      font-weight: 500;
+      user-select: none;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-bottom: 2px solid #bbb;
+      border-radius: 4px;
+      padding: 0.15rem 0.45rem;
+      line-height: 1.4;
+    }
+    .vote-btn:first-child .key-hint { left: 0.6rem; }
+    .vote-btn:last-child .key-hint { right: 0.6rem; }
+    .vote-btn.key-active { border-color: #111; background: #fafafa; }
+    .vote-count {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: #aaa;
+      font-size: 0.85rem;
+    }
+    .vim-hint {
+      position: fixed;
+      bottom: 0.55rem;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: #e0e0e0;
+      font-size: 0.72rem;
+      user-select: none;
+    }
 
     /* Rank */
     .filter-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
@@ -70,10 +128,17 @@
       color: #666;
     }
     .filter-tab.active { background: #111; color: #fff; border-color: #111; }
+    .filter-tab--f { border-color: #f0b0d8; color: #b04898; }
+    .filter-tab--f:hover, .filter-tab--f.active { background: #f0b0d8; border-color: #d060a8; color: #7a1870; }
+    .filter-tab--m { border-color: #a8c8f0; color: #3070b0; }
+    .filter-tab--m:hover, .filter-tab--m.active { background: #a8c8f0; border-color: #5090d0; color: #10407a; }
 
     table { width: 100%; border-collapse: collapse; }
     td { padding: 0.55rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
     td:first-child { color: #bbb; width: 2.5rem; }
+    tr:nth-child(1) td:first-child { color: #c8960c; font-weight: 600; }
+    tr:nth-child(2) td:first-child { color: #909090; font-weight: 600; }
+    tr:nth-child(3) td:first-child { color: #a0674a; font-weight: 600; }
     td:nth-child(3) { color: #aaa; font-size: 0.8rem; padding-left: 0.75rem; }
     td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: #666; }
 
@@ -117,7 +182,7 @@
     <h1>First Past the Peach</h1>
     <nav>
       <a href="#" id="nav-vote" class="active" onclick="showSection('vote'); return false;">Vote</a>
-      <a href="#" id="nav-rank" onclick="showSection('rank'); return false;">Rank</a>
+      <a href="#" id="nav-rank" onclick="showSection('rank'); return false;">Stats</a>
       <a href="#" id="nav-add" onclick="showSection('add'); return false;">+</a>
     </nav>
   </header>
@@ -125,6 +190,7 @@
     <section id="vote" class="active">
       <div class="vote-pair" id="vote-pair"></div>
       <p class="vote-count" id="vote-count"></p>
+      <p class="vim-hint">j / k</p>
     </section>
 
     <section id="rank">

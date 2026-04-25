@@ -23,9 +23,17 @@ The vendor target is a prerequisite for running the app. There is no other build
 
 | Path | Purpose |
 |---|---|
-| `index.html` | Entry point |
-| `app.js` | Vote loop, ELO engine, S3 storage |
+| `index.html` | Entry point; all CSS inline in `<style>` |
+| `app.js` | Vote loop, ELO engine, S3 storage, keyboard shortcuts |
+| `db.js` | SQL helpers: schema, seed, pickPair, recordVote, computeElo, addName |
+| `names.js` | Seed name list (`SEED_NAMES`) |
 | `vendor/database/` | wasm-pack output (`.wasm`, `.js`, `.d.ts`) |
+
+## UI conventions
+
+- No framework — all DOM manipulation via vanilla JS in `app.js`
+- CSS lives entirely in `index.html` `<style>` block; no external stylesheet
+- Keyboard shortcuts on vote screen: `←`/`→` arrows (shown as `.key-hint` inside each button) and `j`/`k` vim-style (shown as a `.vim-hint` below vote count in very light gray — intentionally subtle)
 
 ## Database CLI
 
