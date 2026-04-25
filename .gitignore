@@ -1,0 +1,9 @@
+# editors / IDEs
+.idea
+.vscode
+
+# claude config
+.claude/
+
+# build stamps
+.stamps/
