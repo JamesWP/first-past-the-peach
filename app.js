@@ -1,4 +1,5 @@
 import init, { Database } from './vendor/database/database.js';
+import { SEED_NAMES } from './names.js';
 import { createSchema, pickPair, recordVote, computeElo, addName } from './db.js';
 import { loadS3Config, saveS3Config, testS3Connection, getObject, putObject } from './s3.js';
 
@@ -242,11 +243,26 @@ function readSettingsFields() {
   };
 }
 
+function sampleNameText() {
+  const groups = { f: [], m: [], n: [] };
+  for (const { name, gender } of SEED_NAMES) groups[gender].push(name);
+  return [
+    'f:', ...groups.f,
+    '', 'm:', ...groups.m,
+    '', 'n:', ...groups.n,
+  ].join('\n');
+}
+
 function setupInitForm() {
   const textarea = document.getElementById('setup-names');
   const saved = localStorage.getItem('last_name_list');
   if (saved) textarea.value = saved;
   textarea.addEventListener('input', () => localStorage.setItem('last_name_list', textarea.value));
+
+  document.getElementById('btn-sample-names').onclick = () => {
+    textarea.value = sampleNameText();
+    textarea.dispatchEvent(new Event('input'));
+  };
 
   document.getElementById('setup-form').onsubmit = async (e) => {
     e.preventDefault();

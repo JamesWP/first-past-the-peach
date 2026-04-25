@@ -223,6 +223,20 @@
     }
     .setup-form textarea:focus { outline: none; border-color: #111; }
     .setup-hint { font-size: 0.78rem; color: #aaa; margin-top: -0.75rem; }
+    .btn-sample {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.5rem;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.75rem;
+      font-family: inherit;
+      background: #f0f0f0;
+      color: #555;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-sample:hover { background: #e4e4e4; }
     .setup-form button {
       align-self: flex-start;
       padding: 0.6rem 1.4rem;
@@ -254,7 +268,10 @@
     <section id="setup">
       <form class="setup-form" id="setup-form" novalidate>
         <p>Paste your name list below, one per line. Optionally add a gender after each name: <code>f</code>, <code>m</code>, or <code>n</code>.</p>
-        <textarea id="setup-names" placeholder="f:&#10;Emma&#10;Sophia&#10;&#10;m:&#10;Oliver&#10;James&#10;&#10;River n"></textarea>
+        <div style="position:relative">
+          <textarea id="setup-names" placeholder="f:&#10;Emma&#10;Sophia&#10;&#10;m:&#10;Oliver&#10;James&#10;&#10;River n"></textarea>
+          <button type="button" id="btn-sample-names" class="btn-sample">Sample names</button>
+        </div>
         <p class="setup-hint">Use <code>f:</code>, <code>m:</code>, or <code>n:</code> as headings to set gender for the lines below. You can also suffix individual names (e.g. <code>River n</code>). Names with no gender default to neutral.</p>
         <button type="submit">Start</button>
       </form>
