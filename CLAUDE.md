@@ -27,6 +27,26 @@ The vendor target is a prerequisite for running the app. There is no other build
 | `app.js` | Vote loop, ELO engine, S3 storage |
 | `vendor/database/` | wasm-pack output (`.wasm`, `.js`, `.d.ts`) |
 
+## Database CLI
+
+A native CLI for testing SQL against the same SQLite implementation is available at:
+
+```
+~/gits/database/target/release/database
+```
+
+Use it to verify that a query is supported before using it in `app.js` or `test.js`.
+
+Known unsupported features:
+- `INTEGER PRIMARY KEY` autoincrement — use a `sequences` table
+- `WHERE id IN (...)` — causes WASM panic
+- `LEFT JOIN` — only plain `JOIN` (inner) is implemented
+- Subqueries (inline and correlated)
+- CTEs (`WITH ...`)
+- Multi-table `JOIN` with `GROUP BY`
+
+What works: `SELECT`, `JOIN` (inner), `GROUP BY`, `COUNT(*)`, `ORDER BY`, `UNION ALL` at top level.
+
 ## Database package interface
 
 ```ts

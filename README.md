@@ -16,8 +16,17 @@ Each session presents two names — pick the one you prefer. Over many rounds an
 ## Development
 
 ```sh
-make vendor   # clone, compile, and extract the WASM database package
-make serve    # serve on http://localhost:8080
+make vendor        # clone, compile, and extract the WASM database package
+make serve         # serve on http://localhost:8080
+make install-hooks # install git hooks (runs tests before push)
 ```
 
 Requires `wasm-pack` and a Rust toolchain with the `wasm32-unknown-unknown` target for `make vendor`. The `vendor/` directory is committed so the site works without a local Rust setup.
+
+## Testing
+
+```sh
+node --test test.js
+```
+
+Tests exercise the DB layer (`db.js`) directly using Node's built-in test runner. The WASM database is loaded synchronously from disk so no browser or server is needed. Tests run automatically before `git push` if you have the hook installed (`make install-hooks`).

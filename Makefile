@@ -63,3 +63,16 @@ clean-vendor:
 .PHONY: serve
 serve:
 	python3 -m http.server $(PORT)
+
+# ── test ──────────────────────────────────────────────────────────────────────
+
+.PHONY: test
+test:
+	node --test test.js
+
+# ── hooks ─────────────────────────────────────────────────────────────────────
+
+.PHONY: install-hooks
+install-hooks:
+	cp hooks/pre-push .git/hooks/pre-push
+	chmod +x .git/hooks/pre-push

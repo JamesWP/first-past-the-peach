@@ -2,58 +2,156 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>First Past the Peach</title>
   <style>
-    body { font-family: monospace; max-width: 600px; margin: 4rem auto; padding: 0 1rem; }
-    pre  { background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow-x: auto; }
-    .ok  { color: green; }
-    .err { color: red; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fff;
+      color: #111;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid #e8e8e8;
+      position: sticky;
+      top: 0;
+      background: #fff;
+    }
+    header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+    nav a {
+      text-decoration: none;
+      color: #888;
+      font-size: 0.9rem;
+      margin-left: 1.5rem;
+    }
+    nav a:hover { color: #111; }
+    nav a.active { color: #111; font-weight: 500; }
+
+    main { max-width: 640px; margin: 0 auto; padding: 3rem 2rem; }
+
+    section { display: none; }
+    section.active { display: block; }
+
+    /* Vote */
+    .vote-pair {
+      display: flex;
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .vote-btn {
+      flex: 1;
+      padding: 3.5rem 1rem;
+      font-size: 1.4rem;
+      font-weight: 500;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .vote-btn:hover { border-color: #111; background: #fafafa; }
+    .vote-count { text-align: center; color: #aaa; font-size: 0.85rem; }
+
+    /* Rank */
+    .filter-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .filter-tab {
+      padding: 0.3rem 0.7rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .filter-tab.active { background: #111; color: #fff; border-color: #111; }
+
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 0.55rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; }
+    td:first-child { color: #bbb; width: 2.5rem; }
+    td:nth-child(3) { color: #aaa; font-size: 0.8rem; padding-left: 0.75rem; }
+    td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: #666; }
+
+    /* Add */
+    .add-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 320px; }
+    .field-label { font-size: 0.8rem; color: #888; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .add-form input[type="text"] {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    .add-form input[type="text"]:focus { outline: none; border-color: #111; }
+    .gender-radios { display: flex; gap: 1.25rem; }
+    .gender-radios label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .add-form button {
+      align-self: flex-start;
+      padding: 0.6rem 1.4rem;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .add-form button:hover { background: #333; }
+    .error-msg { font-size: 0.85rem; color: #c00; min-height: 1.2em; }
   </style>
 </head>
 <body>
-  <h1>First Past the Peach</h1>
-  <p id="status">Loading WASM…</p>
-  <pre id="output"></pre>
+  <header>
+    <h1>First Past the Peach</h1>
+    <nav>
+      <a href="#" id="nav-vote" class="active" onclick="showSection('vote'); return false;">Vote</a>
+      <a href="#" id="nav-rank" onclick="showSection('rank'); return false;">Rank</a>
+      <a href="#" id="nav-add" onclick="showSection('add'); return false;">+</a>
+    </nav>
+  </header>
+  <main>
+    <section id="vote" class="active">
+      <div class="vote-pair" id="vote-pair"></div>
+      <p class="vote-count" id="vote-count"></p>
+    </section>
 
-  <script type="module">
-    import init, { Database } from './vendor/database/database.js';
+    <section id="rank">
+      <div class="filter-tabs" id="filter-tabs"></div>
+      <table id="rank-table"><tbody></tbody></table>
+    </section>
 
-    const status = document.getElementById('status');
-    const output = document.getElementById('output');
+    <section id="add">
+      <form class="add-form" id="add-form" novalidate>
+        <div>
+          <p class="field-label">Name</p>
+          <input type="text" id="add-name" placeholder="e.g. River" autocomplete="off">
+        </div>
+        <div>
+          <p class="field-label">Gender</p>
+          <div class="gender-radios">
+            <label><input type="radio" name="gender" value="f"> F</label>
+            <label><input type="radio" name="gender" value="m"> M</label>
+            <label><input type="radio" name="gender" value="n"> N</label>
+          </div>
+        </div>
+        <p class="error-msg" id="add-error"></p>
+        <button type="submit">Add name</button>
+      </form>
+    </section>
+  </main>
 
-    function log(line) {
-      output.textContent += line + '\n';
-    }
-
-    try {
-      await init();
-      status.textContent = '✓ WASM loaded';
-      status.className = 'ok';
-
-      const db = new Database();
-
-      log(db.execute(`CREATE TABLE names (
-        id     INTEGER PRIMARY KEY,
-        name   TEXT NOT NULL,
-        gender TEXT,
-        source TEXT
-      )`));
-
-      log(db.execute(`INSERT INTO names (id, name, gender, source) VALUES (1, 'Alice', 'f', 'seed')`));
-      log(db.execute(`INSERT INTO names (id, name, gender, source) VALUES (2, 'Bob',   'm', 'seed')`));
-      log(db.execute(`INSERT INTO names (id, name, gender, source) VALUES (3, 'Robin', 'n', 'seed')`));
-
-      const rows = db.query('SELECT id, name, gender FROM names ORDER BY id');
-      log('\nSELECT id, name, gender FROM names:');
-      for (const [id, name, gender] of rows) {
-        log(`  ${id}  ${name}  (${gender})`);
-      }
-
-      db.free();
-    } catch (e) {
-      status.textContent = '✗ ' + e;
-      status.className = 'err';
-    }
-  </script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
