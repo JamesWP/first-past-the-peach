@@ -1,6 +1,7 @@
 import init, { Database } from './vendor/database/database.js';
 import { SEED_NAMES } from './names.js';
 import { createSchema, seedNames, pickPair, recordVote, computeElo, addName } from './db.js';
+import { loadS3Config, saveS3Config, testS3Connection } from './s3.js';
 
 let db;
 let activeGender = 'all';
@@ -64,8 +65,8 @@ function renderVoteScreen() {
 
 function renderRankScreen() {
   const scores = computeElo(db);
-  let rows = db.query('SELECT id, name, gender FROM names');
-  if (activeGender !== 'all') rows = rows.filter(([, , g]) => g === activeGender || g === 'n');
+  const genderClause = activeGender === 'all' ? '' : ` WHERE gender = '${activeGender}' OR gender = 'n'`;
+  const rows = db.query(`SELECT id, name, gender FROM names${genderClause}`);
   rows.sort((a, b) => (scores.get(b[0]) ?? 1000) - (scores.get(a[0]) ?? 1000));
 
   const tabs = document.getElementById('filter-tabs');
@@ -107,6 +108,44 @@ function setupAddForm() {
   };
 }
 
+function setupSettingsForm() {
+  const cfg = loadS3Config();
+  document.getElementById('s3-endpoint').value   = cfg.endpoint   ?? '';
+  document.getElementById('s3-bucket').value     = cfg.bucket     ?? '';
+  document.getElementById('s3-access-key').value = cfg.accessKey  ?? '';
+  document.getElementById('s3-secret-key').value = cfg.secretKey  ?? '';
+
+  document.getElementById('settings-form').onsubmit = (e) => {
+    e.preventDefault();
+    saveS3Config(readSettingsFields());
+    setSettingsStatus('Saved.', 'ok');
+  };
+
+  document.getElementById('btn-test-s3').onclick = async () => {
+    const btn = document.getElementById('btn-test-s3');
+    btn.disabled = true;
+    setSettingsStatus('Testing…', '');
+    const result = await testS3Connection(readSettingsFields());
+    setSettingsStatus(result.message, result.ok ? 'ok' : 'err');
+    btn.disabled = false;
+  };
+}
+
+function readSettingsFields() {
+  return {
+    endpoint:  document.getElementById('s3-endpoint').value.trim(),
+    bucket:    document.getElementById('s3-bucket').value.trim(),
+    accessKey: document.getElementById('s3-access-key').value.trim(),
+    secretKey: document.getElementById('s3-secret-key').value.trim(),
+  };
+}
+
+function setSettingsStatus(msg, cls) {
+  const el = document.getElementById('settings-status');
+  el.textContent = msg;
+  el.className = 'settings-status' + (cls ? ' ' + cls : '');
+}
+
 function showSection(id) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -121,4 +160,5 @@ window.showSection = showSection;
 await initDB();
 renderVoteScreen();
 setupAddForm();
+setupSettingsForm();
 setupKeyboardShortcuts();

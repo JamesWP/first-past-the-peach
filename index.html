@@ -178,6 +178,35 @@
     }
     .add-form button:hover { background: #333; }
     .error-msg { font-size: 0.85rem; color: #c00; min-height: 1.2em; }
+
+    /* Settings */
+    .settings-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 360px; }
+    .settings-form input[type="text"],
+    .settings-form input[type="password"] {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+    .settings-form input:focus { outline: none; border-color: #111; }
+    .settings-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+    .settings-form button {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .btn-save { background: #111; color: #fff; }
+    .btn-save:hover { background: #333; }
+    .btn-test { background: #f0f0f0; color: #333; border: 1px solid #ddd; }
+    .btn-test:hover { background: #e4e4e4; }
+    .settings-status { font-size: 0.85rem; color: #888; }
+    .settings-status.ok { color: #2a8a2a; }
+    .settings-status.err { color: #c00; }
   </style>
 </head>
 <body>
@@ -190,6 +219,7 @@
       <a href="#" id="nav-vote" class="active" onclick="showSection('vote'); return false;">Vote</a>
       <a href="#" id="nav-rank" onclick="showSection('rank'); return false;">Stats</a>
       <a href="#" id="nav-add" onclick="showSection('add'); return false;">+</a>
+      <a href="#" id="nav-settings" onclick="showSection('settings'); return false;">&#9881;</a>
     </nav>
   </header>
   <main>
@@ -220,6 +250,31 @@
         </div>
         <p class="error-msg" id="add-error"></p>
         <button type="submit">Add name</button>
+      </form>
+    </section>
+    <section id="settings">
+      <form class="settings-form" id="settings-form" novalidate>
+        <div>
+          <p class="field-label">S3 Endpoint URL</p>
+          <input type="text" id="s3-endpoint" placeholder="https://…r2.cloudflarestorage.com" autocomplete="off">
+        </div>
+        <div>
+          <p class="field-label">Bucket</p>
+          <input type="text" id="s3-bucket" placeholder="my-bucket" autocomplete="off">
+        </div>
+        <div>
+          <p class="field-label">Access Key ID</p>
+          <input type="text" id="s3-access-key" autocomplete="off">
+        </div>
+        <div>
+          <p class="field-label">Secret Access Key</p>
+          <input type="password" id="s3-secret-key" autocomplete="off">
+        </div>
+        <div class="settings-actions">
+          <button type="submit" class="btn-save">Save</button>
+          <button type="button" class="btn-test" id="btn-test-s3">Test connection</button>
+          <span class="settings-status" id="settings-status"></span>
+        </div>
       </form>
     </section>
   </main>
