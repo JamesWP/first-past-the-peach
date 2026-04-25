@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>First Past the Peach</title>
+  <style>
+    body { font-family: monospace; max-width: 600px; margin: 4rem auto; padding: 0 1rem; }
+    pre  { background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow-x: auto; }
+    .ok  { color: green; }
+    .err { color: red; }
+  </style>
+</head>
+<body>
+  <h1>First Past the Peach</h1>
+  <p id="status">Loading WASM…</p>
+  <pre id="output"></pre>
+
+  <script type="module">
+    import init, { Database } from './vendor/database/database.js';
+
+    const status = document.getElementById('status');
+    const output = document.getElementById('output');
+
+    function log(line) {
+      output.textContent += line + '\n';
+    }
+
+    try {
+      await init();
+      status.textContent = '✓ WASM loaded';
+      status.className = 'ok';
+
+      const db = new Database();
+
+      log(db.execute(`CREATE TABLE names (
+        id     INTEGER PRIMARY KEY,
+        name   TEXT NOT NULL,
+        gender TEXT,
+        source TEXT
+      )`));
+
+      log(db.execute(`INSERT INTO names (id, name, gender, source) VALUES (1, 'Alice', 'f', 'seed')`));
+      log(db.execute(`INSERT INTO names (id, name, gender, source) VALUES (2, 'Bob',   'm', 'seed')`));
+      log(db.execute(`INSERT INTO names (id, name, gender, source) VALUES (3, 'Robin', 'n', 'seed')`));
+
+      const rows = db.query('SELECT id, name, gender FROM names ORDER BY id');
+      log('\nSELECT id, name, gender FROM names:');
+      for (const [id, name, gender] of rows) {
+        log(`  ${id}  ${name}  (${gender})`);
+      }
+
+      db.free();
+    } catch (e) {
+      status.textContent = '✗ ' + e;
+      status.className = 'err';
+    }
+  </script>
+</body>
+</html>
