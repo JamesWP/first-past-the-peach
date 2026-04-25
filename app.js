@@ -78,6 +78,7 @@ async function initDB() {
   } else {
     db = new Database();
   }
+  if (!hasS3) return 'settings';
   const status = dbStatus(db);
   if (status === 'fresh') createSchema(db);
   return status === 'vote' ? 'vote' : 'setup';
@@ -197,13 +198,23 @@ function setupAddForm() {
   };
 }
 
-function setupSettingsForm() {
+function setupSettingsForm(isOnboarding = false) {
   const cfg = loadS3Config();
   document.getElementById('s3-endpoint').value   = cfg.endpoint   ?? '';
   document.getElementById('s3-bucket').value     = cfg.bucket     ?? '';
   document.getElementById('s3-access-key').value = cfg.accessKey  ?? '';
   document.getElementById('s3-secret-key').value = cfg.secretKey  ?? '';
   document.getElementById('s3-file-key').value   = cfg.fileKey    ?? '';
+
+  if (isOnboarding) {
+    document.getElementById('settings-onboarding').style.display = '';
+    document.getElementById('local-only-link').style.display = '';
+    document.getElementById('btn-local-only').onclick = (e) => {
+      e.preventDefault();
+      createSchema(db);
+      showSection('setup');
+    };
+  }
 
   document.getElementById('settings-form').onsubmit = (e) => {
     e.preventDefault();
@@ -213,8 +224,9 @@ function setupSettingsForm() {
     const locationChanged = prev.endpoint !== next.endpoint
       || prev.bucket !== next.bucket
       || (prev.fileKey || 'names.db') !== (next.fileKey || 'names.db');
-    if (locationChanged || !s3Provider) {
-      setSettingsStatus('Saved. Reload to apply.', 'ok');
+    if (isOnboarding || locationChanged || !s3Provider) {
+      setSettingsStatus('Connecting…', '');
+      setTimeout(() => location.reload(), 800);
     } else {
       setSettingsStatus('Saving…', '');
       flushToS3()
@@ -311,7 +323,7 @@ window.addEventListener('beforeunload', (e) => {
 
 const initialSection = await initDB();
 setupAddForm();
-setupSettingsForm();
+setupSettingsForm(initialSection === 'settings');
 setupInitForm();
 setupKeyboardShortcuts();
 showSection(initialSection);

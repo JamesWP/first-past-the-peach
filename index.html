@@ -207,6 +207,25 @@
     .settings-status { font-size: 0.85rem; color: #888; }
     .settings-status.ok { color: #2a8a2a; }
     .settings-status.err { color: #c00; }
+    .onboarding-banner {
+      display: none;
+      background: #fffbe6;
+      border: 1px solid #f0d060;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      color: #7a6010;
+      margin-bottom: 0.5rem;
+      max-width: 360px;
+    }
+    .local-only-link {
+      display: none;
+      font-size: 0.82rem;
+      color: #aaa;
+      margin-top: 1rem;
+      max-width: 360px;
+    }
+    .local-only-link a { color: #aaa; }
 
     /* Setup */
     .setup-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 400px; }
@@ -307,6 +326,10 @@
       </form>
     </section>
     <section id="settings">
+      <p class="onboarding-banner" id="settings-onboarding">Connect cloud storage to get started. Your names and votes will be saved to an S3-compatible bucket so both of you can share the same list.</p>
+      <p class="local-only-link" id="local-only-link" style="display:none">
+        <a href="#" id="btn-local-only">Continue without storage</a> — votes won't be saved when you close the tab.
+      </p>
       <form class="settings-form" id="settings-form" novalidate>
         <div>
           <p class="field-label">S3 Endpoint URL</p>
