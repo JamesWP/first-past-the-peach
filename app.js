@@ -1,22 +1,109 @@
 import init, { Database } from './vendor/database/database.js';
-import { SEED_NAMES } from './names.js';
-import { createSchema, seedNames, pickPair, recordVote, computeElo, addName } from './db.js';
-import { loadS3Config, saveS3Config, testS3Connection } from './s3.js';
+import { createSchema, pickPair, recordVote, computeElo, addName } from './db.js';
+import { loadS3Config, saveS3Config, testS3Connection, getObject, putObject } from './s3.js';
+
+const PAGE_SIZE = 4096;
+
+class PageStorageProvider {
+  constructor(blob) {
+    if (blob && blob.length > 0) {
+      const count = Math.floor(blob.length / PAGE_SIZE);
+      this._pages = Array.from({ length: count }, (_, i) =>
+        blob.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE)
+      );
+    } else {
+      this._pages = [];
+    }
+  }
+  pageCount() { return this._pages.length; }
+  setPageCount(n) {
+    while (this._pages.length < n) this._pages.push(new Uint8Array(PAGE_SIZE));
+    this._pages.length = n;
+  }
+  readPage(n) { return this._pages[n]; }
+  writePage(n, data) { this._pages[n] = data.slice(); }
+  flush() {}
+  toBlob() {
+    const buf = new Uint8Array(this._pages.length * PAGE_SIZE);
+    this._pages.forEach((p, i) => buf.set(p, i * PAGE_SIZE));
+    return buf;
+  }
+}
 
 let db;
+let s3Provider = null;
 let activeGender = 'all';
+
+function dbFileKey(cfg) {
+  return cfg.fileKey?.trim() || 'names.db';
+}
+
+function parseNameList(text) {
+  const results = [];
+  let currentGender = 'n';
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const heading = line.match(/^([fmn]):$/i);
+    if (heading) { currentGender = heading[1].toLowerCase(); continue; }
+    const parts = line.split(/\s+/);
+    const last = parts[parts.length - 1].toLowerCase();
+    if (parts.length > 1 && ['f', 'm', 'n'].includes(last)) {
+      results.push({ name: parts.slice(0, -1).join(' '), gender: last });
+    } else {
+      results.push({ name: line, gender: currentGender });
+    }
+  }
+  return results;
+}
+
+function dbStatus(db) {
+  try {
+    const [[count]] = db.query('SELECT COUNT(*) FROM names');
+    return count > 0 ? 'vote' : 'setup';
+  } catch {
+    return 'fresh';
+  }
+}
 
 async function initDB() {
   await init();
-  db = new Database();
-  createSchema(db);
-  seedNames(db, SEED_NAMES);
+  const cfg = loadS3Config();
+  const hasS3 = cfg.endpoint && cfg.bucket && cfg.accessKey && cfg.secretKey;
+  if (hasS3) {
+    const blob = await getObject({ ...cfg, key: dbFileKey(cfg) });
+    s3Provider = new PageStorageProvider(blob);
+    db = Database.withStorage(s3Provider);
+  } else {
+    db = new Database();
+  }
+  const status = dbStatus(db);
+  if (status === 'fresh') createSchema(db);
+  return status === 'vote' ? 'vote' : 'setup';
+}
+
+let flushTimer = null;
+
+async function flushToS3() {
+  if (!s3Provider) return;
+  const cfg = loadS3Config();
+  if (!cfg.endpoint) return;
+  db.flush();
+  await putObject({ ...cfg, key: dbFileKey(cfg), body: s3Provider.toBlob() });
+}
+
+function scheduleFlush() {
+  clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => {
+    flushToS3().catch(e => console.error('S3 sync failed:', e));
+  }, 2000);
 }
 
 function castVote(winnerId, loserId) {
   document.activeElement?.blur();
   recordVote(db, winnerId, loserId);
   renderVoteScreen();
+  scheduleFlush();
 }
 
 function setupKeyboardShortcuts() {
@@ -103,6 +190,7 @@ function setupAddForm() {
     if (!genderVal) { errorEl.textContent = 'Please select a gender.'; return; }
     errorEl.textContent = '';
     addName(db, nameVal, genderVal);
+    scheduleFlush();
     e.target.reset();
     showSection('vote');
   };
@@ -114,11 +202,24 @@ function setupSettingsForm() {
   document.getElementById('s3-bucket').value     = cfg.bucket     ?? '';
   document.getElementById('s3-access-key').value = cfg.accessKey  ?? '';
   document.getElementById('s3-secret-key').value = cfg.secretKey  ?? '';
+  document.getElementById('s3-file-key').value   = cfg.fileKey    ?? '';
 
   document.getElementById('settings-form').onsubmit = (e) => {
     e.preventDefault();
-    saveS3Config(readSettingsFields());
-    setSettingsStatus('Saved.', 'ok');
+    const prev = loadS3Config();
+    const next = readSettingsFields();
+    saveS3Config(next);
+    const locationChanged = prev.endpoint !== next.endpoint
+      || prev.bucket !== next.bucket
+      || (prev.fileKey || 'names.db') !== (next.fileKey || 'names.db');
+    if (locationChanged || !s3Provider) {
+      setSettingsStatus('Saved. Reload to apply.', 'ok');
+    } else {
+      setSettingsStatus('Saving…', '');
+      flushToS3()
+        .then(() => setSettingsStatus('Saved and synced.', 'ok'))
+        .catch(err => setSettingsStatus(`Sync failed: ${err.message}`, 'err'));
+    }
   };
 
   document.getElementById('btn-test-s3').onclick = async () => {
@@ -137,6 +238,32 @@ function readSettingsFields() {
     bucket:    document.getElementById('s3-bucket').value.trim(),
     accessKey: document.getElementById('s3-access-key').value.trim(),
     secretKey: document.getElementById('s3-secret-key').value.trim(),
+    fileKey:   document.getElementById('s3-file-key').value.trim(),
+  };
+}
+
+function setupInitForm() {
+  const textarea = document.getElementById('setup-names');
+  const saved = localStorage.getItem('last_name_list');
+  if (saved) textarea.value = saved;
+  textarea.addEventListener('input', () => localStorage.setItem('last_name_list', textarea.value));
+
+  document.getElementById('setup-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const text = textarea.value;
+    const names = parseNameList(text);
+    if (names.length < 2) {
+      e.target.querySelector('button').insertAdjacentHTML(
+        'beforebegin', '<p class="error-msg" style="margin-bottom:0.5rem">Add at least 2 names to start voting.</p>'
+      );
+      return;
+    }
+    e.target.querySelector('.error-msg')?.remove();
+    for (const { name, gender } of names) {
+      addName(db, name, gender);
+    }
+    await flushToS3();
+    showSection('vote');
   };
 }
 
@@ -150,15 +277,25 @@ function showSection(id) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
-  document.getElementById('nav-' + id).classList.add('active');
+  document.getElementById('nav-' + id)?.classList.add('active');
   if (id === 'vote') renderVoteScreen();
   if (id === 'rank') renderRankScreen();
 }
 
 window.showSection = showSection;
 
-await initDB();
-renderVoteScreen();
+window.addEventListener('beforeunload', (e) => {
+  if (flushTimer !== null) {
+    e.preventDefault();
+    clearTimeout(flushTimer);
+    flushTimer = null;
+    flushToS3().catch(() => {});
+  }
+});
+
+const initialSection = await initDB();
 setupAddForm();
 setupSettingsForm();
+setupInitForm();
 setupKeyboardShortcuts();
+showSection(initialSection);

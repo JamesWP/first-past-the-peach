@@ -8,11 +8,29 @@ export class Database {
      * Execute a DDL or DML statement. Returns a status string.
      */
     execute(sql: string): string;
+    /**
+     * Flush dirty pages from the write cache to the underlying storage provider.
+     */
+    flush(): void;
     constructor();
     /**
      * Execute a SELECT. Returns a JS Array of row arrays.
      */
     query(sql: string): any;
+    /**
+     * Create a Database backed by a custom JS storage provider.
+     *
+     * `provider` must implement the `PageStorageProvider` interface:
+     * - `pageCount(): number`
+     * - `setPageCount(n: number): void`
+     * - `readPage(n: number): Uint8Array`   — exactly 4096 bytes
+     * - `writePage(n: number, data: Uint8Array): void`
+     * - `flush(): void`
+     *
+     * All methods are called synchronously. For async backends (S3, IndexedDB),
+     * implement the provider in a Worker and use `Atomics.wait()` to block.
+     */
+    static withStorage(provider: any): Database;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -21,11 +39,15 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_database_free: (a: number, b: number) => void;
     readonly database_execute: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly database_flush: (a: number) => [number, number];
     readonly database_new: () => number;
     readonly database_query: (a: number, b: number, c: number) => [number, number, number];
-    readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly database_withStorage: (a: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+    readonly __wbindgen_exn_store: (a: number) => void;
+    readonly __externref_table_alloc: () => number;
+    readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_start: () => void;
