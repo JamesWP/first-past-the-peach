@@ -13,6 +13,7 @@ async function initDB() {
 }
 
 function castVote(winnerId, loserId) {
+  document.activeElement?.blur();
   recordVote(db, winnerId, loserId);
   renderVoteScreen();
 }
