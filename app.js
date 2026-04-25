@@ -70,15 +70,19 @@ function dbStatus(db) {
 async function initDB() {
   await init();
   const cfg = loadS3Config();
-  const hasS3 = cfg.endpoint && cfg.bucket && cfg.accessKey && cfg.secretKey;
-  if (hasS3) {
-    const blob = await getObject({ ...cfg, key: dbFileKey(cfg) });
-    s3Provider = new PageStorageProvider(blob);
-    db = Database.withStorage(s3Provider);
-  } else {
+  if (cfg.mode === 'local') {
     db = new Database();
+    createSchema(db);
+    return 'setup';
   }
-  if (!hasS3) return 'settings';
+  const hasS3 = cfg.endpoint && cfg.bucket && cfg.accessKey && cfg.secretKey;
+  if (!hasS3) {
+    db = new Database();
+    return 'settings';
+  }
+  const blob = await getObject({ ...cfg, key: dbFileKey(cfg) });
+  s3Provider = new PageStorageProvider(blob);
+  db = Database.withStorage(s3Provider);
   const status = dbStatus(db);
   if (status === 'fresh') createSchema(db);
   return status === 'vote' ? 'vote' : 'setup';
@@ -198,33 +202,64 @@ function setupAddForm() {
   };
 }
 
-function setupSettingsForm(isOnboarding = false) {
+function setupSettingsForm() {
   const cfg = loadS3Config();
+  const mode = cfg.mode ?? 's3';
+  document.querySelector(`input[name="storage-mode"][value="${mode}"]`).checked = true;
   document.getElementById('s3-endpoint').value   = cfg.endpoint   ?? '';
   document.getElementById('s3-bucket').value     = cfg.bucket     ?? '';
   document.getElementById('s3-access-key').value = cfg.accessKey  ?? '';
   document.getElementById('s3-secret-key').value = cfg.secretKey  ?? '';
   document.getElementById('s3-file-key').value   = cfg.fileKey    ?? '';
 
-  if (isOnboarding) {
-    document.getElementById('settings-onboarding').style.display = '';
-    document.getElementById('local-only-link').style.display = '';
-    document.getElementById('btn-local-only').onclick = (e) => {
-      e.preventDefault();
-      createSchema(db);
-      showSection('setup');
-    };
+  let s3Verified = false;
+
+  function currentMode() {
+    return document.querySelector('input[name="storage-mode"]:checked')?.value ?? 's3';
   }
+
+  function updateSaveState() {
+    const isLocal = currentMode() === 'local';
+    document.getElementById('s3-fields').style.display = isLocal ? 'none' : '';
+    document.getElementById('btn-save').disabled = !isLocal && !s3Verified;
+  }
+
+  function resetVerified() {
+    s3Verified = false;
+    updateSaveState();
+  }
+
+  document.querySelectorAll('input[name="storage-mode"]').forEach(r => {
+    r.addEventListener('change', () => { resetVerified(); setSettingsStatus('', ''); });
+  });
+  document.getElementById('s3-endpoint').addEventListener('input', resetVerified);
+  document.getElementById('s3-bucket').addEventListener('input', resetVerified);
+  document.getElementById('s3-access-key').addEventListener('input', resetVerified);
+  document.getElementById('s3-secret-key').addEventListener('input', resetVerified);
+
+  updateSaveState();
+
+  document.getElementById('btn-test-s3').onclick = async () => {
+    const btn = document.getElementById('btn-test-s3');
+    btn.disabled = true;
+    setSettingsStatus('Testing…', '');
+    const result = await testS3Connection(readSettingsFields());
+    s3Verified = result.ok;
+    setSettingsStatus(result.message, result.ok ? 'ok' : 'err');
+    btn.disabled = false;
+    updateSaveState();
+  };
 
   document.getElementById('settings-form').onsubmit = (e) => {
     e.preventDefault();
     const prev = loadS3Config();
     const next = readSettingsFields();
     saveS3Config(next);
+    const modeChanged = (prev.mode ?? 's3') !== next.mode;
     const locationChanged = prev.endpoint !== next.endpoint
       || prev.bucket !== next.bucket
       || (prev.fileKey || 'names.db') !== (next.fileKey || 'names.db');
-    if (isOnboarding || locationChanged || !s3Provider) {
+    if (modeChanged || locationChanged || !s3Provider) {
       setSettingsStatus('Connecting…', '');
       setTimeout(() => location.reload(), 800);
     } else {
@@ -234,19 +269,11 @@ function setupSettingsForm(isOnboarding = false) {
         .catch(err => setSettingsStatus(`Sync failed: ${err.message}`, 'err'));
     }
   };
-
-  document.getElementById('btn-test-s3').onclick = async () => {
-    const btn = document.getElementById('btn-test-s3');
-    btn.disabled = true;
-    setSettingsStatus('Testing…', '');
-    const result = await testS3Connection(readSettingsFields());
-    setSettingsStatus(result.message, result.ok ? 'ok' : 'err');
-    btn.disabled = false;
-  };
 }
 
 function readSettingsFields() {
   return {
+    mode:      document.querySelector('input[name="storage-mode"]:checked')?.value ?? 's3',
     endpoint:  document.getElementById('s3-endpoint').value.trim(),
     bucket:    document.getElementById('s3-bucket').value.trim(),
     accessKey: document.getElementById('s3-access-key').value.trim(),
@@ -323,7 +350,7 @@ window.addEventListener('beforeunload', (e) => {
 
 const initialSection = await initDB();
 setupAddForm();
-setupSettingsForm(initialSection === 'settings');
+setupSettingsForm();
 setupInitForm();
 setupKeyboardShortcuts();
 showSection(initialSection);

@@ -207,25 +207,9 @@
     .settings-status { font-size: 0.85rem; color: #888; }
     .settings-status.ok { color: #2a8a2a; }
     .settings-status.err { color: #c00; }
-    .onboarding-banner {
-      display: none;
-      background: #fffbe6;
-      border: 1px solid #f0d060;
-      border-radius: 6px;
-      padding: 0.75rem 1rem;
-      font-size: 0.88rem;
-      color: #7a6010;
-      margin-bottom: 0.5rem;
-      max-width: 360px;
-    }
-    .local-only-link {
-      display: none;
-      font-size: 0.82rem;
-      color: #aaa;
-      margin-top: 1rem;
-      max-width: 360px;
-    }
-    .local-only-link a { color: #aaa; }
+    .storage-mode-radios { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.25rem; }
+    .storage-mode-radios label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; cursor: pointer; }
+    .mode-hint { font-size: 0.78rem; color: #aaa; }
 
     /* Setup */
     .setup-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 400px; }
@@ -326,35 +310,42 @@
       </form>
     </section>
     <section id="settings">
-      <p class="onboarding-banner" id="settings-onboarding">Connect cloud storage to get started. Your names and votes will be saved to an S3-compatible bucket so both of you can share the same list.</p>
-      <p class="local-only-link" id="local-only-link" style="display:none">
-        <a href="#" id="btn-local-only">Continue without storage</a> — votes won't be saved when you close the tab.
-      </p>
       <form class="settings-form" id="settings-form" novalidate>
         <div>
-          <p class="field-label">S3 Endpoint URL</p>
-          <input type="text" id="s3-endpoint" placeholder="https://…r2.cloudflarestorage.com" autocomplete="off">
+          <p class="field-label">Storage</p>
+          <div class="storage-mode-radios">
+            <label><input type="radio" name="storage-mode" value="s3"> Cloud storage (S3)</label>
+            <label><input type="radio" name="storage-mode" value="local"> Local only <span class="mode-hint">— not saved on reload</span></label>
+          </div>
         </div>
-        <div>
-          <p class="field-label">Bucket</p>
-          <input type="text" id="s3-bucket" placeholder="my-bucket" autocomplete="off">
-        </div>
-        <div>
-          <p class="field-label">Access Key ID</p>
-          <input type="text" id="s3-access-key" autocomplete="off">
-        </div>
-        <div>
-          <p class="field-label">Secret Access Key</p>
-          <input type="password" id="s3-secret-key" autocomplete="off">
-        </div>
-        <div>
-          <p class="field-label">Database file</p>
-          <input type="text" id="s3-file-key" placeholder="names.db" autocomplete="off">
+        <div id="s3-fields">
+          <div>
+            <p class="field-label">S3 Endpoint URL</p>
+            <input type="text" id="s3-endpoint" placeholder="https://…r2.cloudflarestorage.com" autocomplete="off">
+          </div>
+          <div>
+            <p class="field-label">Bucket</p>
+            <input type="text" id="s3-bucket" placeholder="my-bucket" autocomplete="off">
+          </div>
+          <div>
+            <p class="field-label">Access Key ID</p>
+            <input type="text" id="s3-access-key" autocomplete="off">
+          </div>
+          <div>
+            <p class="field-label">Secret Access Key</p>
+            <input type="password" id="s3-secret-key" autocomplete="off">
+          </div>
+          <div>
+            <p class="field-label">Database file</p>
+            <input type="text" id="s3-file-key" placeholder="names.db" autocomplete="off">
+          </div>
+          <div class="settings-actions">
+            <button type="button" class="btn-test" id="btn-test-s3">Test connection</button>
+            <span class="settings-status" id="settings-status"></span>
+          </div>
         </div>
         <div class="settings-actions">
-          <button type="submit" class="btn-save">Save</button>
-          <button type="button" class="btn-test" id="btn-test-s3">Test connection</button>
-          <span class="settings-status" id="settings-status"></span>
+          <button type="submit" class="btn-save" id="btn-save" disabled>Save</button>
         </div>
       </form>
     </section>
