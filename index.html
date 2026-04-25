@@ -27,6 +27,7 @@
       background: #fff;
     }
     header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+    header .subtitle { font-size: 0.72rem; color: #aaa; margin-top: 0.1rem; font-weight: 400; }
     nav a {
       text-decoration: none;
       color: #888;
@@ -179,7 +180,10 @@
 </head>
 <body>
   <header>
-    <h1>First Past the Peach</h1>
+    <div>
+      <h1>First Past the Peach</h1>
+      <p class="subtitle">Pick your favourite baby names, one pair at a time</p>
+    </div>
     <nav>
       <a href="#" id="nav-vote" class="active" onclick="showSection('vote'); return false;">Vote</a>
       <a href="#" id="nav-rank" onclick="showSection('rank'); return false;">Stats</a>
