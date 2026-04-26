@@ -85,12 +85,37 @@ export async function putObject({ endpoint, bucket, accessKey, secretKey, key, b
   if (!resp.ok) throw new Error(`S3 PUT failed: HTTP ${resp.status}`);
 }
 
-export async function testS3Connection({ endpoint, bucket, accessKey, secretKey, fileKey }) {
-  const key = fileKey?.trim() || 'names.db';
+export async function testS3Connection({ endpoint, bucket, accessKey, secretKey }) {
+  const region = 'auto';
+  const service = 's3';
+  const host = new URL(endpoint).hostname;
+
+  const now = new Date();
+  const datetime = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const date = datetime.slice(0, 8);
+
+  const queryParams = { 'list-type': '2', 'max-keys': '1' };
+  const qs = canonicalQS(queryParams);
+  const payloadHash = await sha256hex('');
+  const canonicalHeaders = `host:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${datetime}\n`;
+  const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+  const canonicalRequest = ['GET', `/${bucket}`, qs, canonicalHeaders, signedHeaders, payloadHash].join('\n');
+
+  const scope = `${date}/${region}/${service}/aws4_request`;
+  const stringToSign = `AWS4-HMAC-SHA256\n${datetime}\n${scope}\n${await sha256hex(canonicalRequest)}`;
+  const sk = await signingKey(secretKey, date, region, service);
+  const signature = toHex(await hmac(sk, stringToSign));
+
+  const url = `${endpoint.replace(/\/$/, '')}/${bucket}?${qs}`;
   try {
-    const resp = await signedRequest({ endpoint, bucket, accessKey, secretKey, method: 'HEAD', key });
-    // 200 = object exists, 404 = bucket reachable but no DB yet — both mean credentials work
-    if (resp.ok || resp.status === 404) return { ok: true, message: 'Connected — bucket is reachable.' };
+    const resp = await fetch(url, {
+      headers: {
+        Authorization: `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+        'x-amz-date': datetime,
+        'x-amz-content-sha256': payloadHash,
+      },
+    });
+    if (resp.ok) return { ok: true, message: 'Connected — bucket is reachable.' };
     const text = await resp.text();
     const code = text.match(/<Code>(.+?)<\/Code>/)?.[1];
     return { ok: false, message: code ? `${resp.status} ${code}` : `HTTP ${resp.status}` };
