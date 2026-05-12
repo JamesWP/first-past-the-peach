@@ -51,12 +51,22 @@ vendor-database: $(VENDOR_DIR)/database_bg.wasm
 
 # ── top-level aliases ─────────────────────────────────────────────────────────
 
+AWS4FETCH_VERSION ?= 1.0.20
+AWS4FETCH_URL     := https://unpkg.com/aws4fetch@$(AWS4FETCH_VERSION)/dist/aws4fetch.esm.js
+AWS4FETCH_OUT     := vendor/aws4fetch.js
+
+$(AWS4FETCH_OUT):
+	curl -sL $(AWS4FETCH_URL) -o $(AWS4FETCH_OUT)
+
+.PHONY: vendor-aws4fetch
+vendor-aws4fetch: $(AWS4FETCH_OUT)
+
 .PHONY: vendor
-vendor: vendor-database
+vendor: vendor-database vendor-aws4fetch
 
 .PHONY: clean-vendor
 clean-vendor:
-	rm -rf $(VENDOR_DIR)
+	rm -rf $(VENDOR_DIR) $(AWS4FETCH_OUT)
 
 # ── serve ─────────────────────────────────────────────────────────────────────
 
