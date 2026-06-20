@@ -22,6 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Inject build info
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          TS=$(date -u '+%Y-%m-%d %H:%M UTC')
+          sed -i "s|__BUILD_INFO__|${SHA} · ${TS}|g" index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
