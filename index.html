@@ -262,14 +262,9 @@
       user-select: none;
     }
     .build-stamp { font-size: 0.65rem; color: #ccc; }
-    .save-indicator {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #f0a040;
-      display: inline-block;
-    }
-    .save-indicator--saving { animation: save-pulse 0.9s ease-in-out infinite; }
+    .save-indicator { display: none; width: 6px; height: 6px; border-radius: 50%; background: #f0a040; }
+    .save-indicator--pending { display: inline-block; }
+    .save-indicator--saving { display: inline-block; animation: save-pulse 0.9s ease-in-out infinite; }
     @keyframes save-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.25; }
@@ -417,7 +412,7 @@
 
   <script type="module" src="app.js"></script>
   <div class="build-footer">
-    <span id="save-indicator" class="save-indicator" hidden title="Unsaved changes"></span>
+    <span id="save-indicator" class="save-indicator"></span>
     <span class="build-stamp">__BUILD_INFO__</span>
   </div>
 </body>

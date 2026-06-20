@@ -94,14 +94,8 @@ let flushTimer = null;
 function setSaveIndicator(state) {
   const el = document.getElementById('save-indicator');
   if (!el) return;
-  if (state === 'hidden') {
-    el.hidden = true;
-    el.className = 'save-indicator';
-  } else {
-    el.hidden = false;
-    el.className = 'save-indicator' + (state === 'saving' ? ' save-indicator--saving' : '');
-    el.title = state === 'saving' ? 'Saving…' : 'Unsaved changes';
-  }
+  el.className = state === 'hidden' ? 'save-indicator' : `save-indicator save-indicator--${state}`;
+  el.title = state === 'saving' ? 'Saving…' : state === 'pending' ? 'Unsaved changes' : '';
 }
 
 async function flushToS3() {
