@@ -91,16 +91,32 @@ async function initDB() {
 
 let flushTimer = null;
 
+function setSaveIndicator(state) {
+  const el = document.getElementById('save-indicator');
+  if (!el) return;
+  if (state === 'hidden') {
+    el.hidden = true;
+    el.className = 'save-indicator';
+  } else {
+    el.hidden = false;
+    el.className = 'save-indicator' + (state === 'saving' ? ' save-indicator--saving' : '');
+    el.title = state === 'saving' ? 'Saving…' : 'Unsaved changes';
+  }
+}
+
 async function flushToS3() {
   if (!s3Provider) return;
   const cfg = loadS3Config();
   if (!cfg.endpoint) return;
+  setSaveIndicator('saving');
   db.flush();
   await putObject({ ...cfg, key: dbFileKey(cfg), body: s3Provider.toBlob() });
+  setSaveIndicator('hidden');
 }
 
 function scheduleFlush() {
   clearTimeout(flushTimer);
+  setSaveIndicator('pending');
   flushTimer = setTimeout(() => {
     flushToS3().catch(e => console.error('S3 sync failed:', e));
   }, 2000);
