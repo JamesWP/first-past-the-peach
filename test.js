@@ -10,10 +10,45 @@ import { createSchema, ensureExcludedTable, seedNames, nextId, pickPair, recordV
 const __dirname = dirname(fileURLToPath(import.meta.url));
 initSync(readFileSync(join(__dirname, 'vendor/database/database_bg.wasm')));
 
+const PAGE_SIZE = 4096;
+
+class PageStorageProvider {
+  constructor(blob) {
+    if (blob && blob.length > 0) {
+      const count = Math.floor(blob.length / PAGE_SIZE);
+      this._pages = Array.from({ length: count }, (_, i) =>
+        blob.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE)
+      );
+    } else {
+      this._pages = [];
+    }
+  }
+  pageCount() { return this._pages.length; }
+  setPageCount(n) {
+    while (this._pages.length < n) this._pages.push(new Uint8Array(PAGE_SIZE));
+    this._pages.length = n;
+  }
+  readPage(n) { return this._pages[n]; }
+  writePage(n, data) { this._pages[n] = data.slice(); }
+  flush() {}
+  toBlob() {
+    const buf = new Uint8Array(this._pages.length * PAGE_SIZE);
+    this._pages.forEach((p, i) => buf.set(p, i * PAGE_SIZE));
+    return buf;
+  }
+}
+
 function makeDB() {
   const db = new Database();
   createSchema(db);
   return db;
+}
+
+function makeStoredDB() {
+  const provider = new PageStorageProvider(null);
+  const db = Database.withStorage(provider);
+  createSchema(db);
+  return { db, provider };
 }
 
 test('schema and sequences create without error', () => {
@@ -177,4 +212,52 @@ test('ensureExcludedTable creates excluded table when missing', () => {
   const [[count]] = db.query(`SELECT COUNT(*) FROM db_schema WHERE type = 'table' AND name = 'excluded'`);
   assert.equal(Number(count), 1);
   db.free();
+});
+
+test('exclusion survives flush → blob → reload round-trip', () => {
+  const { db, provider } = makeStoredDB();
+  addName(db, 'Alpha', 'n');
+  addName(db, 'Beta', 'n');
+  const [[idA]] = db.query(`SELECT id FROM names WHERE name = 'Alpha'`);
+  excludeName(db, idA);
+  db.flush();
+  const blob = provider.toBlob();
+
+  // reload from blob
+  const provider2 = new PageStorageProvider(blob);
+  const db2 = Database.withStorage(provider2);
+  const excluded = getExcludedIds(db2);
+  assert.ok(excluded.has(idA), `excluded table should contain id ${idA} after reload`);
+  db.free();
+  db2.free();
+});
+
+test('exclusion survives flush → blob → reload round-trip with migration', () => {
+  // Simulate an existing DB that predates the excluded table
+  const { db: oldDb, provider: oldProvider } = makeStoredDB();
+  addName(oldDb, 'Alpha', 'n');
+  addName(oldDb, 'Beta', 'n');
+  // Remove excluded table to simulate pre-feature DB
+  oldDb.execute(`DROP TABLE excluded`);
+  oldDb.flush();
+  const oldBlob = oldProvider.toBlob();
+  oldDb.free();
+
+  // Load "old" DB and migrate
+  const provider2 = new PageStorageProvider(oldBlob);
+  const db2 = Database.withStorage(provider2);
+  ensureExcludedTable(db2);
+  const [[idA]] = db2.query(`SELECT id FROM names WHERE name = 'Alpha'`);
+  excludeName(db2, idA);
+  db2.flush();
+  const blob2 = provider2.toBlob();
+  db2.free();
+
+  // Reload again and check
+  const provider3 = new PageStorageProvider(blob2);
+  const db3 = Database.withStorage(provider3);
+  ensureExcludedTable(db3);
+  const excluded = getExcludedIds(db3);
+  assert.ok(excluded.has(idA), `exclusion should survive migration + reload`);
+  db3.free();
 });

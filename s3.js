@@ -21,7 +21,7 @@ function objectUrl(cfg, key) {
 
 export async function getObject({ endpoint, bucket, accessKey, secretKey, key }) {
   const aws = makeClient({ accessKey, secretKey });
-  const resp = await aws.fetch(objectUrl({ endpoint, bucket }, key));
+  const resp = await aws.fetch(objectUrl({ endpoint, bucket }, key), { cache: 'no-store' });
   if (resp.status === 404) return null;
   if (!resp.ok) throw new Error(`S3 GET failed: HTTP ${resp.status}`);
   return new Uint8Array(await resp.arrayBuffer());
