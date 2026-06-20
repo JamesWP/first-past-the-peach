@@ -85,7 +85,7 @@ async function initDB() {
   db = Database.withStorage(s3Provider);
   const status = dbStatus(db);
   if (status === 'fresh') createSchema(db);
-  else if (ensureExcludedTable(db)) await flushToS3();
+  else ensureExcludedTable(db);
   return status === 'vote' ? 'vote' : 'setup';
 }
 
@@ -197,7 +197,7 @@ function renderRankScreen() {
     btn.title = isExcluded ? 'Re-include in voting' : 'Exclude from voting';
     btn.onclick = () => {
       if (isExcluded) includeName(db, nameId); else excludeName(db, nameId);
-      flushToS3().catch(e => console.error('S3 sync failed:', e));
+      scheduleFlush();
       renderRankScreen();
     };
     td.appendChild(btn);

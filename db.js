@@ -26,11 +26,7 @@ export function createSchema(db) {
 
 export function ensureExcludedTable(db) {
   const rows = db.query(`SELECT name FROM db_schema WHERE type = 'table' AND name = 'excluded'`);
-  if (rows.length === 0) {
-    db.execute(`CREATE TABLE excluded (name_id INTEGER PRIMARY KEY)`);
-    return true;
-  }
-  return false;
+  if (rows.length === 0) db.execute(`CREATE TABLE excluded (name_id INTEGER PRIMARY KEY)`);
 }
 
 export function getExcludedIds(db) {
