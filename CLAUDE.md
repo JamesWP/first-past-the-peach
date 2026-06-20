@@ -1,11 +1,11 @@
 # First Past the Peach
 
-A web app for two people to collaboratively rank baby names through pairwise comparison. Votes drive an ELO scoring system; the shared state persists as a SQLite blob in S3-compatible cloud storage.
+A web app for two people to collaboratively rank baby names through pairwise comparison. Votes drive an ELO scoring system; the shared state persists as a DB blob in S3-compatible cloud storage.
 
 ## Architecture
 
 - **Frontend**: Plain HTML/CSS/JS — no build step, no framework
-- **DB engine**: WASM SQLite (`/home/james/gits/database`) compiled via wasm-pack, consumed from `vendor/database/`
+- **DB engine**: Custom home-grown database by JamesWP (`github.com/JamesWP/database`), compiled to WASM via wasm-pack, consumed from `vendor/database/`. **This is NOT SQLite** — it has a limited SQL surface (see constraints below).
 - **Persistence**: Full DB blob fetched from S3 on load, PUT back after each vote (`S3PageStorage`)
 - **Sync model**: Last write wins; both users share one blob
 
