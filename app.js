@@ -81,11 +81,20 @@ async function initDB() {
     return 'settings';
   }
   const blob = await getObject({ ...cfg, key: dbFileKey(cfg) });
+  console.debug('[db] loaded blob', blob?.length, 'bytes');
   s3Provider = new PageStorageProvider(blob);
   db = Database.withStorage(s3Provider);
   const status = dbStatus(db);
-  if (status === 'fresh') createSchema(db);
-  else ensureExcludedTable(db);
+  if (status === 'fresh') {
+    createSchema(db);
+  } else {
+    const schemaRows = db.query(`SELECT name FROM db_schema WHERE type = 'table'`);
+    console.debug('[db] tables on load:', schemaRows.map(([n]) => n));
+    const created = ensureExcludedTable(db);
+    console.debug('[db] ensureExcludedTable created?', created);
+    const excludedOnLoad = db.query('SELECT name_id FROM excluded');
+    console.debug('[db] excluded rows on load:', excludedOnLoad);
+  }
   return status === 'vote' ? 'vote' : 'setup';
 }
 
@@ -95,8 +104,13 @@ async function flushToS3() {
   if (!s3Provider) return;
   const cfg = loadS3Config();
   if (!cfg.endpoint) return;
+  const excludedBeforeFlush = db.query('SELECT name_id FROM excluded');
+  console.debug('[flush] excluded rows before db.flush():', excludedBeforeFlush);
   db.flush();
-  await putObject({ ...cfg, key: dbFileKey(cfg), body: s3Provider.toBlob() });
+  const blob = s3Provider.toBlob();
+  console.debug('[flush] blob size:', blob.length, 'bytes');
+  await putObject({ ...cfg, key: dbFileKey(cfg), body: blob });
+  console.debug('[flush] PUT complete');
 }
 
 function scheduleFlush() {
