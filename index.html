@@ -161,6 +161,30 @@
     td:nth-child(3) { color: #aaa; font-size: 0.8rem; padding-left: 0.75rem; }
     td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: #666; }
 
+    .rank-toggle {
+      padding: 0.1rem 0.35rem;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      background: #fff;
+      color: #bbb;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .rank-toggle:hover { border-color: #999; color: #555; }
+    tr.rank-excluded td { color: #ccc; }
+    tr.rank-excluded td:nth-child(2) { text-decoration: line-through; }
+    tr.excluded-divider td {
+      padding-top: 1.25rem;
+      padding-bottom: 0.25rem;
+      font-size: 0.72rem;
+      color: #ccc;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      border-bottom: none;
+    }
+
     /* Add */
     .add-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 320px; }
     .field-label { font-size: 0.8rem; color: #888; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }

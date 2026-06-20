@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { initSync, Database } from './vendor/database/database.js';
 import { SEED_NAMES } from './names.js';
-import { createSchema, seedNames, nextId, pickPair, recordVote, computeElo, addName } from './db.js';
+import { createSchema, ensureExcludedTable, seedNames, nextId, pickPair, recordVote, computeElo, addName, getExcludedIds, excludeName, includeName } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 initSync(readFileSync(join(__dirname, 'vendor/database/database_bg.wasm')));
@@ -96,6 +96,85 @@ test('addName inserts a wildcard name', () => {
   seedNames(db, SEED_NAMES);
   addName(db, 'Zephyr', 'n');
   const [[count]] = db.query(`SELECT COUNT(*) FROM names WHERE name = 'Zephyr'`);
+  assert.equal(Number(count), 1);
+  db.free();
+});
+
+test('excludeName removes name from pickPair candidates', () => {
+  const db = makeDB();
+  addName(db, 'Alpha', 'n');
+  addName(db, 'Beta', 'n');
+  addName(db, 'Gamma', 'n');
+  const [[excludedId]] = db.query(`SELECT id FROM names WHERE name = 'Alpha'`);
+  excludeName(db, excludedId);
+  for (let i = 0; i < 20; i++) {
+    const [a, b] = pickPair(db);
+    assert.notEqual(a.id, excludedId, 'excluded name should not appear in pair');
+    assert.notEqual(b.id, excludedId, 'excluded name should not appear in pair');
+  }
+  db.free();
+});
+
+test('includeName restores name to pickPair candidates', () => {
+  const db = makeDB();
+  addName(db, 'Alpha', 'n');
+  addName(db, 'Beta', 'n');
+  addName(db, 'Gamma', 'n');
+  const [[targetId]] = db.query(`SELECT id FROM names WHERE name = 'Alpha'`);
+  excludeName(db, targetId);
+  includeName(db, targetId);
+  const seen = new Set();
+  for (let i = 0; i < 30; i++) {
+    const [a, b] = pickPair(db);
+    seen.add(a.id);
+    seen.add(b.id);
+  }
+  assert.ok(seen.has(targetId), 're-included name should appear in pairs');
+  db.free();
+});
+
+test('getExcludedIds returns current exclusion set', () => {
+  const db = makeDB();
+  addName(db, 'Alpha', 'n');
+  addName(db, 'Beta', 'n');
+  const [[idA]] = db.query(`SELECT id FROM names WHERE name = 'Alpha'`);
+  const [[idB]] = db.query(`SELECT id FROM names WHERE name = 'Beta'`);
+  assert.equal(getExcludedIds(db).size, 0);
+  excludeName(db, idA);
+  assert.ok(getExcludedIds(db).has(idA));
+  assert.ok(!getExcludedIds(db).has(idB));
+  includeName(db, idA);
+  assert.equal(getExcludedIds(db).size, 0);
+  db.free();
+});
+
+test('pickPair returns null when fewer than 2 active names', () => {
+  const db = makeDB();
+  addName(db, 'Alpha', 'n');
+  addName(db, 'Beta', 'n');
+  const [[idA]] = db.query(`SELECT id FROM names WHERE name = 'Alpha'`);
+  const [[idB]] = db.query(`SELECT id FROM names WHERE name = 'Beta'`);
+  excludeName(db, idA);
+  excludeName(db, idB);
+  assert.equal(pickPair(db), null);
+  db.free();
+});
+
+test('ensureExcludedTable is idempotent on a fresh db', () => {
+  const db = makeDB();
+  ensureExcludedTable(db);
+  const [[count]] = db.query(`SELECT COUNT(*) FROM db_schema WHERE type = 'table' AND name = 'excluded'`);
+  assert.equal(Number(count), 1);
+  db.free();
+});
+
+test('ensureExcludedTable creates excluded table when missing', () => {
+  const db = new Database();
+  db.execute(`CREATE TABLE sequences (name TEXT PRIMARY KEY, next_val INTEGER)`);
+  db.execute(`CREATE TABLE names (id INTEGER PRIMARY KEY, name TEXT NOT NULL, gender TEXT, source TEXT)`);
+  db.execute(`CREATE TABLE votes (id INTEGER PRIMARY KEY, winner_id INTEGER, loser_id INTEGER, voted_at INTEGER)`);
+  ensureExcludedTable(db);
+  const [[count]] = db.query(`SELECT COUNT(*) FROM db_schema WHERE type = 'table' AND name = 'excluded'`);
   assert.equal(Number(count), 1);
   db.free();
 });

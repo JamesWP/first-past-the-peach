@@ -1,6 +1,6 @@
 import init, { Database } from './vendor/database/database.js';
 import { SEED_NAMES } from './names.js';
-import { createSchema, pickPair, recordVote, computeElo, addName } from './db.js';
+import { createSchema, ensureExcludedTable, pickPair, recordVote, computeElo, addName, getExcludedIds, excludeName, includeName } from './db.js';
 import { loadS3Config, saveS3Config, testS3Connection, getObject, putObject } from './s3.js';
 
 const PAGE_SIZE = 4096;
@@ -85,6 +85,7 @@ async function initDB() {
   db = Database.withStorage(s3Provider);
   const status = dbStatus(db);
   if (status === 'fresh') createSchema(db);
+  else ensureExcludedTable(db);
   return status === 'vote' ? 'vote' : 'setup';
 }
 
@@ -134,11 +135,18 @@ function setupKeyboardShortcuts() {
 const KEY_HINTS = [['←', 'ArrowLeft'], ['→', 'ArrowRight']];
 
 function renderVoteScreen() {
-  const [a, b] = pickPair(db);
+  const pair = pickPair(db);
   const [[total]] = db.query('SELECT COUNT(*) FROM votes');
-
   const pairEl = document.getElementById('vote-pair');
   pairEl.innerHTML = '';
+
+  if (!pair) {
+    pairEl.innerHTML = '<p style="color:#aaa;font-size:0.95rem;text-align:center">No names available — re-enable some from the Stats screen.</p>';
+    document.getElementById('vote-count').textContent = '';
+    return;
+  }
+
+  const [a, b] = pair;
   for (const [[candidate, opponent], [label]] of [[[a, b], KEY_HINTS[0]], [[b, a], KEY_HINTS[1]]]) {
     const btn = document.createElement('button');
     const colorKey = candidate.gender !== 'n' ? candidate.gender
@@ -158,9 +166,14 @@ function renderVoteScreen() {
 
 function renderRankScreen() {
   const scores = computeElo(db);
+  const excludedIds = getExcludedIds(db);
   const genderClause = activeGender === 'all' ? '' : ` WHERE gender = '${activeGender}' OR gender = 'n'`;
   const rows = db.query(`SELECT id, name, gender FROM names${genderClause}`);
-  rows.sort((a, b) => (scores.get(b[0]) ?? 1000) - (scores.get(a[0]) ?? 1000));
+
+  const active = rows.filter(([id]) => !excludedIds.has(id));
+  const excluded = rows.filter(([id]) => excludedIds.has(id));
+  active.sort((a, b) => (scores.get(b[0]) ?? 1000) - (scores.get(a[0]) ?? 1000));
+  excluded.sort((a, b) => (scores.get(b[0]) ?? 1000) - (scores.get(a[0]) ?? 1000));
 
   const tabs = document.getElementById('filter-tabs');
   tabs.innerHTML = '';
@@ -175,15 +188,54 @@ function renderRankScreen() {
 
   const tbody = document.querySelector('#rank-table tbody');
   tbody.innerHTML = '';
-  rows.forEach(([id, name, gender], i) => {
+
+  function makeToggleBtn(nameId, isExcluded) {
+    const td = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.className = 'rank-toggle';
+    btn.textContent = isExcluded ? '+' : '×';
+    btn.title = isExcluded ? 'Re-include in voting' : 'Exclude from voting';
+    btn.onclick = () => {
+      if (isExcluded) includeName(db, nameId); else excludeName(db, nameId);
+      scheduleFlush();
+      renderRankScreen();
+    };
+    td.appendChild(btn);
+    return td;
+  }
+
+  active.forEach(([id, name, gender], i) => {
     const tr = document.createElement('tr');
     for (const text of [i + 1, name, `[${gender ?? '?'}]`, Math.round(scores.get(id) ?? 1000)]) {
       const td = document.createElement('td');
       td.textContent = text;
       tr.appendChild(td);
     }
+    tr.appendChild(makeToggleBtn(id, false));
     tbody.appendChild(tr);
   });
+
+  if (excluded.length > 0) {
+    const divider = document.createElement('tr');
+    divider.className = 'excluded-divider';
+    const td = document.createElement('td');
+    td.colSpan = 5;
+    td.textContent = 'Excluded';
+    divider.appendChild(td);
+    tbody.appendChild(divider);
+
+    excluded.forEach(([id, name, gender]) => {
+      const tr = document.createElement('tr');
+      tr.className = 'rank-excluded';
+      for (const text of ['–', name, `[${gender ?? '?'}]`, Math.round(scores.get(id) ?? 1000)]) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.appendChild(td);
+      }
+      tr.appendChild(makeToggleBtn(id, true));
+      tbody.appendChild(tr);
+    });
+  }
 }
 
 function setupAddForm() {

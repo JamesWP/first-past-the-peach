@@ -21,6 +21,24 @@ export function createSchema(db) {
     loser_id  INTEGER,
     voted_at  INTEGER
   )`);
+  db.execute(`CREATE TABLE excluded (name_id INTEGER PRIMARY KEY)`);
+}
+
+export function ensureExcludedTable(db) {
+  const rows = db.query(`SELECT name FROM db_schema WHERE type = 'table' AND name = 'excluded'`);
+  if (rows.length === 0) db.execute(`CREATE TABLE excluded (name_id INTEGER PRIMARY KEY)`);
+}
+
+export function getExcludedIds(db) {
+  return new Set(db.query('SELECT name_id FROM excluded').map(([id]) => id));
+}
+
+export function excludeName(db, nameId) {
+  db.execute(`INSERT INTO excluded (name_id) VALUES (${nameId})`);
+}
+
+export function includeName(db, nameId) {
+  db.execute(`DELETE FROM excluded WHERE name_id = ${nameId}`);
 }
 
 export function seedNames(db, names) {
@@ -35,7 +53,9 @@ export function compatible(gA, gB) {
 }
 
 export function pickPair(db) {
-  const nameRows = db.query('SELECT id, name, gender FROM names');
+  const excludedIds = getExcludedIds(db);
+  const nameRows = db.query('SELECT id, name, gender FROM names').filter(([id]) => !excludedIds.has(id));
+  if (nameRows.length < 2) return null;
   const nameMap = new Map(nameRows.map(([id, name, gender]) => [id, { name, gender }]));
   const counts = new Map(nameRows.map(([id]) => [id, 0]));
   for (const [id, cnt] of db.query('SELECT winner_id, COUNT(*) FROM votes GROUP BY winner_id')) {
