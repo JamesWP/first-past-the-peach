@@ -1,5 +1,5 @@
 import init, { Database } from './vendor/database/database.js';
-import QRCode from './vendor/qr/qrcode.min.js';
+import QRCode from 'https://cdn.jsdelivr.net/npm/qrcode/+esm';
 import { SEED_NAMES } from './names.js';
 import { createSchema, ensureExcludedTable, pickPair, recordVote, computeElo, addName, getExcludedIds, excludeName, includeName } from './db.js';
 import { loadS3Config, saveS3Config, testS3Connection, getObject, putObject } from './s3.js';
