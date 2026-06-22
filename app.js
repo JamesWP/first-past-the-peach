@@ -419,24 +419,28 @@ function showQrExport() {
 }
 
 async function handleQrScan(file) {
+  console.log('[qr] scan started, file size:', file.size, 'type:', file.type);
   try {
-    // imageOrientation:'from-image' applies EXIF rotation so phone photos
-    // arrive correctly oriented — without this jsQR sees a rotated image.
+    console.log('[qr] calling createImageBitmap...');
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    console.log('[qr] bitmap ready, size:', bitmap.width, 'x', bitmap.height);
 
-    // Scale down large phone photos; jsQR doesn't need full resolution.
     const MAX = 1600;
     const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
     const w = Math.round(bitmap.width * scale);
     const h = Math.round(bitmap.height * scale);
+    console.log('[qr] canvas size after scale:', w, 'x', h, '(scale', scale.toFixed(2) + ')');
 
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
     canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+    console.log('[qr] drawImage done, calling getImageData...');
 
     const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, w, h);
+    console.log('[qr] imageData ready, calling jsQR...');
     const result = jsQR(data, width, height);
+    console.log('[qr] jsQR result:', result ? 'found: ' + result.data.slice(0, 40) : 'null');
     if (!result) { setSettingsStatus('Could not read QR code — try again.', 'err'); return; }
     try {
       const cfg = JSON.parse(result.data);
@@ -456,7 +460,8 @@ async function handleQrScan(file) {
     } catch {
       setSettingsStatus('Invalid QR code data.', 'err');
     }
-  } catch {
+  } catch (err) {
+    console.error('[qr] error:', err);
     setSettingsStatus('Could not read image — try again.', 'err');
   }
 }
