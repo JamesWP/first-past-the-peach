@@ -1,4 +1,5 @@
 import init, { Database } from './vendor/database/database.js';
+import QRCode from './vendor/qr/qrcode.min.js';
 import { SEED_NAMES } from './names.js';
 import { createSchema, ensureExcludedTable, pickPair, recordVote, computeElo, addName, getExcludedIds, excludeName, includeName } from './db.js';
 import { loadS3Config, saveS3Config, testS3Connection, getObject, putObject } from './s3.js';
@@ -409,7 +410,7 @@ function showQrExport() {
     fk: cfg.fileKey,
   });
   document.getElementById('qr-modal').classList.add('open');
-  window.QRCode.toCanvas(
+  QRCode.toCanvas(
     document.getElementById('qr-canvas'),
     payload,
     { width: 240, margin: 2 },
@@ -427,7 +428,7 @@ function handleQrScan(file) {
       canvas.height = img.height;
       canvas.getContext('2d').drawImage(img, 0, 0);
       const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, img.width, img.height);
-      const result = window.jsQR(data, width, height);
+      const result = jsQR(data, width, height);
       if (!result) { setSettingsStatus('Could not read QR code — try again.', 'err'); return; }
       try {
         const cfg = JSON.parse(result.data);
