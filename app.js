@@ -418,27 +418,28 @@ function showQrExport() {
   );
 }
 
+function decodeQrAtSize(bitmap, maxPx) {
+  const scale = Math.min(1, maxPx / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, w, h);
+  return jsQR(data, width, height);
+}
+
 async function handleQrScan(file) {
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
 
-    // jsQR runs synchronously on the main thread; keep canvas small so it
-    // doesn't block mobile CPUs. 800px is ample for a QR code.
-    const MAX = 800;
-    const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
-    const w = Math.round(bitmap.width * scale);
-    const h = Math.round(bitmap.height * scale);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-
-    console.log('[qr] bitmap', bitmap.width, 'x', bitmap.height, '→ canvas', w, 'x', h);
-    const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, w, h);
-    const result = jsQR(data, width, height);
-    console.log('[qr] jsQR:', result ? 'decoded' : 'null');
-    if (!result) { setSettingsStatus('Could not read QR code — try again.', 'err'); return; }
+    // Try small first (fast); retry at larger size if QR code is too small in frame.
+    const result = decodeQrAtSize(bitmap, 800) ?? decodeQrAtSize(bitmap, 1400);
+    if (!result) {
+      setSettingsStatus('Could not read QR code — hold the camera closer to the screen and try again.', 'err');
+      return;
+    }
     try {
       const cfg = JSON.parse(result.data);
       const fields = [
