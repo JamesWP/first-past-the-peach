@@ -434,8 +434,10 @@ async function handleQrScan(file) {
     canvas.height = h;
     canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
 
+    console.log('[qr] bitmap', bitmap.width, 'x', bitmap.height, '→ canvas', w, 'x', h);
     const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, w, h);
     const result = jsQR(data, width, height);
+    console.log('[qr] jsQR:', result ? 'decoded' : 'null');
     if (!result) { setSettingsStatus('Could not read QR code — try again.', 'err'); return; }
     try {
       const cfg = JSON.parse(result.data);
