@@ -400,22 +400,47 @@ function setupInitForm() {
   };
 }
 
-function showQrExport() {
-  const cfg = readSettingsFields();
-  const payload = JSON.stringify({
+function configToUrl(cfg) {
+  const payload = btoa(JSON.stringify({
     e:  cfg.endpoint,
     b:  cfg.bucket,
     ak: cfg.accessKey,
     sk: cfg.secretKey,
     fk: cfg.fileKey,
-  });
+  }));
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?s3=${encodeURIComponent(payload)}`;
+}
+
+function showQrExport() {
+  const url = configToUrl(readSettingsFields());
   document.getElementById('qr-modal').classList.add('open');
   QRCode.toCanvas(
     document.getElementById('qr-canvas'),
-    payload,
-    { width: 240, margin: 2 },
+    url,
+    { width: 300, margin: 2 },
     err => { if (err) console.error('QR generation failed:', err); }
   );
+}
+
+function applyConfigFromUrl() {
+  const param = new URLSearchParams(window.location.search).get('s3');
+  if (!param) return false;
+  try {
+    const cfg = JSON.parse(atob(param));
+    saveS3Config({
+      mode:      's3',
+      endpoint:  cfg.e  ?? '',
+      bucket:    cfg.b  ?? '',
+      accessKey: cfg.ak ?? '',
+      secretKey: cfg.sk ?? '',
+      fileKey:   cfg.fk ?? '',
+    });
+    history.replaceState(null, '', window.location.pathname);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function decodeQrAtSize(bitmap, maxPx) {
@@ -437,11 +462,18 @@ async function handleQrScan(file) {
     // Try small first (fast); retry at larger size if QR code is too small in frame.
     const result = decodeQrAtSize(bitmap, 800) ?? decodeQrAtSize(bitmap, 1400);
     if (!result) {
-      setSettingsStatus('Could not read QR code — hold the camera closer to the screen and try again.', 'err');
+      setSettingsStatus('Could not read QR code — try again.', 'err');
       return;
     }
     try {
-      const cfg = JSON.parse(result.data);
+      // Accept both URL format (?s3=base64) and legacy raw JSON format.
+      let cfg;
+      const urlParam = new URLSearchParams(new URL(result.data).search).get('s3');
+      if (urlParam) {
+        cfg = JSON.parse(atob(urlParam));
+      } else {
+        cfg = JSON.parse(result.data);
+      }
       const fields = [
         ['s3-endpoint',   cfg.e  ?? ''],
         ['s3-bucket',     cfg.b  ?? ''],
@@ -489,6 +521,7 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+applyConfigFromUrl();
 const initialSection = await initDB();
 setupAddForm();
 setupSettingsForm();
