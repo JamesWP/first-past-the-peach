@@ -267,7 +267,6 @@ function setupAddForm() {
 
 function setupSettingsForm() {
   const cfg = loadS3Config();
-  console.log('[settings-form] loadS3Config:', JSON.stringify(cfg).slice(0, 80));
   const mode = cfg.mode ?? 's3';
   document.querySelector(`input[name="storage-mode"][value="${mode}"]`).checked = true;
   document.getElementById('s3-endpoint').value   = cfg.endpoint   ?? '';
@@ -311,12 +310,6 @@ function setupSettingsForm() {
     if (e.target === document.getElementById('qr-modal'))
       document.getElementById('qr-modal').classList.remove('open');
   });
-  document.getElementById('btn-qr-scan').onclick = () => document.getElementById('qr-scan-input').click();
-  document.getElementById('qr-scan-input').onchange = (e) => {
-    const file = e.target.files[0];
-    if (file) handleQrScan(file);
-    e.target.value = '';
-  };
 
   document.getElementById('btn-test-s3').onclick = async () => {
     const btn = document.getElementById('btn-test-s3');
@@ -425,76 +418,22 @@ function showQrExport() {
 }
 
 function applyConfigFromUrl() {
-  const search = window.location.search;
-  console.log('[url-import] search:', search);
-  const param = new URLSearchParams(search).get('s3');
-  console.log('[url-import] param:', param ? param.slice(0, 20) + '…' : null);
+  const param = new URLSearchParams(window.location.search).get('s3');
   if (!param) return false;
-  let decoded;
-  try { decoded = atob(param); } catch(e) { console.error('[url-import] atob failed:', e); return false; }
-  console.log('[url-import] decoded:', decoded.slice(0, 60) + '…');
-  let cfg;
-  try { cfg = JSON.parse(decoded); } catch(e) { console.error('[url-import] JSON.parse failed:', e); return false; }
-  console.log('[url-import] cfg keys:', Object.keys(cfg));
-  saveS3Config({
-    mode:      's3',
-    endpoint:  cfg.e  ?? '',
-    bucket:    cfg.b  ?? '',
-    accessKey: cfg.ak ?? '',
-    secretKey: cfg.sk ?? '',
-    fileKey:   cfg.fk ?? '',
-  });
-  console.log('[url-import] saved. loadS3Config():', JSON.stringify(loadS3Config()).slice(0, 80));
-  history.replaceState(null, '', window.location.pathname);
-  return true;
-}
-
-function decodeQrAtSize(bitmap, maxPx) {
-  const scale = Math.min(1, maxPx / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-  const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, w, h);
-  return jsQR(data, width, height);
-}
-
-async function handleQrScan(file) {
   try {
-    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-
-    // Try small first (fast); retry at larger size if QR code is too small in frame.
-    const result = decodeQrAtSize(bitmap, 800) ?? decodeQrAtSize(bitmap, 1400);
-    if (!result) {
-      setSettingsStatus('Could not read QR code — try again.', 'err');
-      return;
-    }
-    try {
-      // Accept both URL format (?s3=base64) and legacy raw JSON format.
-      let cfg;
-      const urlParam = new URLSearchParams(new URL(result.data).search).get('s3');
-      if (urlParam) {
-        cfg = JSON.parse(atob(urlParam));
-      } else {
-        cfg = JSON.parse(result.data);
-      }
-      saveS3Config({
-        mode:      's3',
-        endpoint:  cfg.e  ?? '',
-        bucket:    cfg.b  ?? '',
-        accessKey: cfg.ak ?? '',
-        secretKey: cfg.sk ?? '',
-        fileKey:   cfg.fk ?? '',
-      });
-      // Reload so initDB picks up the new config cleanly.
-      location.reload();
-    } catch {
-      setSettingsStatus('Invalid QR code data.', 'err');
-    }
+    const cfg = JSON.parse(atob(param));
+    saveS3Config({
+      mode:      's3',
+      endpoint:  cfg.e  ?? '',
+      bucket:    cfg.b  ?? '',
+      accessKey: cfg.ak ?? '',
+      secretKey: cfg.sk ?? '',
+      fileKey:   cfg.fk ?? '',
+    });
+    history.replaceState(null, '', window.location.pathname);
+    return true;
   } catch {
-    setSettingsStatus('Could not read image — try again.', 'err');
+    return false;
   }
 }
 

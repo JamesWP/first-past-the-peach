@@ -67,9 +67,6 @@ QR_DIR            := vendor/qr
 QRCODE_URL        := https://cdn.jsdelivr.net/npm/qrcode/+esm
 DIJKSTRA_VERSION  ?= 1.0.3
 DIJKSTRA_URL      := https://cdn.jsdelivr.net/npm/dijkstrajs@$(DIJKSTRA_VERSION)/+esm
-JSQR_VERSION      ?= 1.4.0
-JSQR_URL          := https://cdn.jsdelivr.net/npm/jsqr@$(JSQR_VERSION)/dist/jsQR.js
-
 $(QR_DIR)/dijkstrajs.min.js:
 	mkdir -p $(QR_DIR)
 	curl -sL $(DIJKSTRA_URL) -o $@
@@ -80,12 +77,8 @@ $(QR_DIR)/qrcode.min.js: $(QR_DIR)/dijkstrajs.min.js
 	curl -sL $(QRCODE_URL) -o $@
 	sed -i 's|from"/npm/dijkstrajs@$(DIJKSTRA_VERSION)/+esm"|from"./dijkstrajs.min.js"|' $@
 
-$(QR_DIR)/jsQR.js:
-	mkdir -p $(QR_DIR)
-	curl -sL $(JSQR_URL) -o $@
-
 .PHONY: vendor-qr
-vendor-qr: $(QR_DIR)/qrcode.min.js $(QR_DIR)/jsQR.js
+vendor-qr: $(QR_DIR)/qrcode.min.js
 
 .PHONY: vendor
 vendor: vendor-database vendor-aws4fetch vendor-qr
