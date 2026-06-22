@@ -418,40 +418,47 @@ function showQrExport() {
   );
 }
 
-function handleQrScan(file) {
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, img.width, img.height);
-      const result = jsQR(data, width, height);
-      if (!result) { setSettingsStatus('Could not read QR code — try again.', 'err'); return; }
-      try {
-        const cfg = JSON.parse(result.data);
-        const fields = [
-          ['s3-endpoint',   cfg.e  ?? ''],
-          ['s3-bucket',     cfg.b  ?? ''],
-          ['s3-access-key', cfg.ak ?? ''],
-          ['s3-secret-key', cfg.sk ?? ''],
-          ['s3-file-key',   cfg.fk ?? ''],
-        ];
-        for (const [id, val] of fields) {
-          const el = document.getElementById(id);
-          el.value = val;
-          el.dispatchEvent(new Event('input'));
-        }
-        setSettingsStatus('Settings imported — test connection to verify.', 'ok');
-      } catch {
-        setSettingsStatus('Invalid QR code data.', 'err');
+async function handleQrScan(file) {
+  try {
+    // imageOrientation:'from-image' applies EXIF rotation so phone photos
+    // arrive correctly oriented — without this jsQR sees a rotated image.
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+
+    // Scale down large phone photos; jsQR doesn't need full resolution.
+    const MAX = 1600;
+    const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+
+    const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, w, h);
+    const result = jsQR(data, width, height);
+    if (!result) { setSettingsStatus('Could not read QR code — try again.', 'err'); return; }
+    try {
+      const cfg = JSON.parse(result.data);
+      const fields = [
+        ['s3-endpoint',   cfg.e  ?? ''],
+        ['s3-bucket',     cfg.b  ?? ''],
+        ['s3-access-key', cfg.ak ?? ''],
+        ['s3-secret-key', cfg.sk ?? ''],
+        ['s3-file-key',   cfg.fk ?? ''],
+      ];
+      for (const [id, val] of fields) {
+        const el = document.getElementById(id);
+        el.value = val;
+        el.dispatchEvent(new Event('input'));
       }
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
+      setSettingsStatus('Settings imported — test connection to verify.', 'ok');
+    } catch {
+      setSettingsStatus('Invalid QR code data.', 'err');
+    }
+  } catch {
+    setSettingsStatus('Could not read image — try again.', 'err');
+  }
 }
 
 function setSettingsStatus(msg, cls) {
