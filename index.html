@@ -270,6 +270,56 @@
       50% { opacity: 0.25; }
     }
 
+    /* QR share/scan */
+    .qr-buttons { display: flex; gap: 0.5rem; }
+    .btn-qr {
+      padding: 0.6rem 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      background: #f8f8f8;
+      color: #444;
+      cursor: pointer;
+    }
+    .btn-qr:hover { background: #efefef; border-color: #bbb; }
+
+    .qr-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-modal.open { display: flex; }
+    .qr-modal-inner {
+      background: #fff;
+      border-radius: 10px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      max-width: 320px;
+      width: 90vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+    .qr-modal-title { font-weight: 600; font-size: 1rem; }
+    .qr-modal-hint { font-size: 0.78rem; color: #888; text-align: center; line-height: 1.5; }
+    .qr-modal-close {
+      padding: 0.45rem 1.2rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      background: #f0f0f0;
+      color: #333;
+      cursor: pointer;
+    }
+    .qr-modal-close:hover { background: #e4e4e4; }
+
     /* Setup */
     .setup-form { display: flex; flex-direction: column; gap: 1.25rem; max-width: 400px; }
     .setup-form p { font-size: 0.9rem; color: #555; line-height: 1.5; }
@@ -402,6 +452,10 @@
             <button type="button" class="btn-test" id="btn-test-s3">Test connection</button>
             <span class="settings-status" id="settings-status"></span>
           </div>
+          <div class="qr-buttons">
+            <button type="button" class="btn-qr" id="btn-qr-share">Share QR</button>
+            <button type="button" class="btn-qr" id="btn-qr-scan">Scan QR</button>
+          </div>
         </div>
         <div class="settings-actions">
           <button type="submit" class="btn-save" id="btn-save" disabled>Save</button>
@@ -410,6 +464,18 @@
     </section>
   </main>
 
+  <div id="qr-modal" class="qr-modal" role="dialog" aria-modal="true">
+    <div class="qr-modal-inner">
+      <p class="qr-modal-title">Share connection settings</p>
+      <canvas id="qr-canvas"></canvas>
+      <p class="qr-modal-hint">Have the other person open Settings and tap <strong>Scan QR</strong> to import these connection details.</p>
+      <button type="button" class="qr-modal-close" id="btn-qr-close">Close</button>
+    </div>
+  </div>
+  <input type="file" id="qr-scan-input" accept="image/*" capture="environment" style="display:none">
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script type="module" src="app.js"></script>
   <div class="build-footer">
     <span id="save-indicator" class="save-indicator"></span>

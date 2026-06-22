@@ -301,6 +301,21 @@ function setupSettingsForm() {
 
   updateSaveState();
 
+  document.getElementById('btn-qr-share').onclick = showQrExport;
+  document.getElementById('btn-qr-close').onclick = () => {
+    document.getElementById('qr-modal').classList.remove('open');
+  };
+  document.getElementById('qr-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('qr-modal'))
+      document.getElementById('qr-modal').classList.remove('open');
+  });
+  document.getElementById('btn-qr-scan').onclick = () => document.getElementById('qr-scan-input').click();
+  document.getElementById('qr-scan-input').onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) handleQrScan(file);
+    e.target.value = '';
+  };
+
   document.getElementById('btn-test-s3').onclick = async () => {
     const btn = document.getElementById('btn-test-s3');
     btn.disabled = true;
@@ -382,6 +397,60 @@ function setupInitForm() {
     await flushToS3();
     showSection('vote');
   };
+}
+
+function showQrExport() {
+  const cfg = readSettingsFields();
+  const payload = JSON.stringify({
+    e:  cfg.endpoint,
+    b:  cfg.bucket,
+    ak: cfg.accessKey,
+    sk: cfg.secretKey,
+    fk: cfg.fileKey,
+  });
+  document.getElementById('qr-modal').classList.add('open');
+  window.QRCode.toCanvas(
+    document.getElementById('qr-canvas'),
+    payload,
+    { width: 240, margin: 2 },
+    err => { if (err) console.error('QR generation failed:', err); }
+  );
+}
+
+function handleQrScan(file) {
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      const { data, width, height } = canvas.getContext('2d').getImageData(0, 0, img.width, img.height);
+      const result = window.jsQR(data, width, height);
+      if (!result) { setSettingsStatus('Could not read QR code — try again.', 'err'); return; }
+      try {
+        const cfg = JSON.parse(result.data);
+        const fields = [
+          ['s3-endpoint',   cfg.e  ?? ''],
+          ['s3-bucket',     cfg.b  ?? ''],
+          ['s3-access-key', cfg.ak ?? ''],
+          ['s3-secret-key', cfg.sk ?? ''],
+          ['s3-file-key',   cfg.fk ?? ''],
+        ];
+        for (const [id, val] of fields) {
+          const el = document.getElementById(id);
+          el.value = val;
+          el.dispatchEvent(new Event('input'));
+        }
+        setSettingsStatus('Settings imported — test connection to verify.', 'ok');
+      } catch {
+        setSettingsStatus('Invalid QR code data.', 'err');
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function setSettingsStatus(msg, cls) {
