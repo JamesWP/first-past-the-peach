@@ -267,6 +267,7 @@ function setupAddForm() {
 
 function setupSettingsForm() {
   const cfg = loadS3Config();
+  console.log('[settings-form] loadS3Config:', JSON.stringify(cfg).slice(0, 80));
   const mode = cfg.mode ?? 's3';
   document.querySelector(`input[name="storage-mode"][value="${mode}"]`).checked = true;
   document.getElementById('s3-endpoint').value   = cfg.endpoint   ?? '';
@@ -424,23 +425,28 @@ function showQrExport() {
 }
 
 function applyConfigFromUrl() {
-  const param = new URLSearchParams(window.location.search).get('s3');
+  const search = window.location.search;
+  console.log('[url-import] search:', search);
+  const param = new URLSearchParams(search).get('s3');
+  console.log('[url-import] param:', param ? param.slice(0, 20) + '…' : null);
   if (!param) return false;
-  try {
-    const cfg = JSON.parse(atob(param));
-    saveS3Config({
-      mode:      's3',
-      endpoint:  cfg.e  ?? '',
-      bucket:    cfg.b  ?? '',
-      accessKey: cfg.ak ?? '',
-      secretKey: cfg.sk ?? '',
-      fileKey:   cfg.fk ?? '',
-    });
-    history.replaceState(null, '', window.location.pathname);
-    return true;
-  } catch {
-    return false;
-  }
+  let decoded;
+  try { decoded = atob(param); } catch(e) { console.error('[url-import] atob failed:', e); return false; }
+  console.log('[url-import] decoded:', decoded.slice(0, 60) + '…');
+  let cfg;
+  try { cfg = JSON.parse(decoded); } catch(e) { console.error('[url-import] JSON.parse failed:', e); return false; }
+  console.log('[url-import] cfg keys:', Object.keys(cfg));
+  saveS3Config({
+    mode:      's3',
+    endpoint:  cfg.e  ?? '',
+    bucket:    cfg.b  ?? '',
+    accessKey: cfg.ak ?? '',
+    secretKey: cfg.sk ?? '',
+    fileKey:   cfg.fk ?? '',
+  });
+  console.log('[url-import] saved. loadS3Config():', JSON.stringify(loadS3Config()).slice(0, 80));
+  history.replaceState(null, '', window.location.pathname);
+  return true;
 }
 
 function decodeQrAtSize(bitmap, maxPx) {
@@ -474,19 +480,16 @@ async function handleQrScan(file) {
       } else {
         cfg = JSON.parse(result.data);
       }
-      const fields = [
-        ['s3-endpoint',   cfg.e  ?? ''],
-        ['s3-bucket',     cfg.b  ?? ''],
-        ['s3-access-key', cfg.ak ?? ''],
-        ['s3-secret-key', cfg.sk ?? ''],
-        ['s3-file-key',   cfg.fk ?? ''],
-      ];
-      for (const [id, val] of fields) {
-        const el = document.getElementById(id);
-        el.value = val;
-        el.dispatchEvent(new Event('input'));
-      }
-      setSettingsStatus('Settings imported — test connection to verify.', 'ok');
+      saveS3Config({
+        mode:      's3',
+        endpoint:  cfg.e  ?? '',
+        bucket:    cfg.b  ?? '',
+        accessKey: cfg.ak ?? '',
+        secretKey: cfg.sk ?? '',
+        fileKey:   cfg.fk ?? '',
+      });
+      // Reload so initDB picks up the new config cleanly.
+      location.reload();
     } catch {
       setSettingsStatus('Invalid QR code data.', 'err');
     }
@@ -521,10 +524,15 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
-applyConfigFromUrl();
+const importedFromUrl = applyConfigFromUrl();
 const initialSection = await initDB();
 setupAddForm();
 setupSettingsForm();
 setupInitForm();
 setupKeyboardShortcuts();
-showSection(initialSection);
+if (importedFromUrl) {
+  showSection('settings');
+  setSettingsStatus('Settings loaded from QR — test connection, then save.', 'ok');
+} else {
+  showSection(initialSection);
+}
